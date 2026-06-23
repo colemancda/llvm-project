@@ -382,12 +382,26 @@ public:
                    AggValueSlot Slot) const override;
 };
 
+/// Swift calling convention ABI for 32-bit PowerPC (SVR4/EABI).
+class PPC32SwiftABIInfo : public SwiftABIInfo {
+public:
+  explicit PPC32SwiftABIInfo(CodeGenTypes &CGT)
+      : SwiftABIInfo(CGT, /*SwiftErrorInRegister=*/false) {}
+
+  bool shouldPassIndirectly(ArrayRef<llvm::Type *> ComponentTys,
+                            bool AsReturnValue) const override {
+    return occupiesMoreThan(ComponentTys, /*total=*/4);
+  }
+};
+
 class PPC32TargetCodeGenInfo : public TargetCodeGenInfo {
 public:
   PPC32TargetCodeGenInfo(CodeGenTypes &CGT, bool SoftFloatABI,
                          bool RetSmallStructInRegABI)
       : TargetCodeGenInfo(std::make_unique<PPC32_SVR4_ABIInfo>(
-            CGT, SoftFloatABI, RetSmallStructInRegABI)) {}
+            CGT, SoftFloatABI, RetSmallStructInRegABI)) {
+    SwiftInfo = std::make_unique<PPC32SwiftABIInfo>(CGT);
+  }
 
   static bool isStructReturnInRegABI(const llvm::Triple &Triple,
                                      const CodeGenOptions &Opts);
