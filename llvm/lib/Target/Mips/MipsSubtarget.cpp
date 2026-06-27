@@ -154,8 +154,16 @@ MipsSubtarget::MipsSubtarget(const Triple &TT, StringRef CPU, StringRef FS,
       report_fatal_error(ISA + " is not compatible with the DSP ASE", false);
   }
 
-  if (NoABICalls && TM.isPositionIndependent())
-    report_fatal_error("position-independent code requires '-mabicalls'");
+  if (NoABICalls && TM.isPositionIndependent()) {
+    // Clang's resetNonModularOptions() resets RelocationModel to PIC_ for
+    // PCH/module compilations, even when the user passed -mno-abicalls -fno-pic.
+    // For bare-metal MIPS-I (e.g. PS1/R3000), PCH containers hold serialized
+    // AST bytes — no real MIPS code is executed — so silently re-enable abicalls
+    // rather than aborting. The real Swift compilation uses Static relocation
+    // and never hits this path.
+    // See: swift-embedded-ps1 MipsSubtarget PIC+no-abicalls patch.
+    NoABICalls = false;
+  }
 
   if (isABI_N64() && !TM.isPositionIndependent() && !hasSym32())
     NoABICalls = true;

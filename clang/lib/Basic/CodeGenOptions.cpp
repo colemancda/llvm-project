@@ -47,7 +47,12 @@ void CodeGenOptions::resetNonModularOptions(StringRef ModuleFormat) {
 #include "clang/Basic/DebugOptions.def"
   }
 
-  RelocationModel = llvm::Reloc::PIC_;
+  // Do NOT unconditionally reset RelocationModel to PIC_ here.
+  // The model was already set from the compilation flags (e.g. -fno-pic sets
+  // Reloc::Static). Overriding it breaks targets like MIPS that enforce a
+  // strict ABI contract between the relocation model and calling convention:
+  // MIPS with -mno-abicalls crashes in MipsSubtarget when RM == PIC_.
+  // See: swift-embedded-ps1 CodeGenOptions resetNonModularOptions patch.
 }
 
 }  // end namespace clang

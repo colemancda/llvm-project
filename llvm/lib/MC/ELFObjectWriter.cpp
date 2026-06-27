@@ -537,6 +537,14 @@ void ELFWriter::computeSymbolTable(const RevGroupMapTy &RevGroupMap) {
     MSD.Order = It.index();
 
     bool Local = Symbol.getBinding() == ELF::STB_LOCAL;
+    // MIPS HI16/LO16 relocation pairs can create temporary symbols
+    // that incorrectly receive STB_GLOBAL binding. Force them to
+    // STB_LOCAL to satisfy the invariant that temporary symbols
+    // must be local.
+    if (Symbol.isTemporary() && !Local) {
+      Symbol.setBinding(ELF::STB_LOCAL);
+      Local = true;
+    }
     assert(Local || !Symbol.isTemporary());
 
     if (Symbol.isAbsolute()) {

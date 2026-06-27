@@ -74,9 +74,13 @@ static void checkFlags(Ctx &ctx, ArrayRef<FileFlags> files) {
 
     uint32_t abi2 = f.flags & (EF_MIPS_ABI | EF_MIPS_ABI2);
     if (abi != abi2)
-      Err(ctx) << f.file << ": ABI '" << getAbiName(abi2)
-               << "' is incompatible with target ABI '" << getAbiName(abi)
-               << "'";
+      // Old mipsel-none-elf GCC (PSn00bSDK) sometimes writes incorrect ABI
+      // flags (n64) into o32 object files. Downgrade to a warning so the
+      // static bare-metal link can proceed.
+      // See: swift-embedded-ps1 lld MIPS ABI mismatch patch.
+      Warn(ctx) << f.file << ": ABI '" << getAbiName(abi2)
+                << "' is incompatible with target ABI '" << getAbiName(abi)
+                << "' (ignoring — PSn00bSDK old-GCC artefact)";
 
     bool nan2 = f.flags & EF_MIPS_NAN2008;
     if (nan != nan2)
@@ -352,9 +356,12 @@ uint8_t elf::getMipsFpAbiFlag(Ctx &ctx, InputFile *file, uint8_t oldFlag,
   if (compareMipsFpAbi(newFlag, oldFlag) >= 0)
     return newFlag;
   if (compareMipsFpAbi(oldFlag, newFlag) < 0)
-    Err(ctx) << file << ": floating point ABI '" << getMipsFpAbiName(newFlag)
-             << "' is incompatible with target floating point ABI '"
-             << getMipsFpAbiName(oldFlag) << "'";
+    // PSn00bSDK was compiled -msoft-float; our code may differ. Allow the
+    // mix for bare-metal static links — no FPU ABI contract is enforced.
+    // See: swift-embedded-ps1 lld MIPS FP ABI mismatch patch.
+    Warn(ctx) << file << ": floating point ABI '" << getMipsFpAbiName(newFlag)
+              << "' is incompatible with target floating point ABI '"
+              << getMipsFpAbiName(oldFlag) << "' (ignoring — bare-metal)";
   return oldFlag;
 }
 

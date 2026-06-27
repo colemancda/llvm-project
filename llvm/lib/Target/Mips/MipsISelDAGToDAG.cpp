@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "MipsISelDAGToDAG.h"
+#include "MipsISelLowering.h"
 #include "Mips.h"
 #include "MipsMachineFunction.h"
 #include "llvm/CodeGen/MachineConstantPool.h"
@@ -242,6 +243,17 @@ void MipsDAGToDAGISel::Select(SDNode *Node) {
 
   switch(Opcode) {
   default: break;
+
+  // MIPS-I has no SYNC instruction (added in MIPS-II). On single-core
+  // bare-metal targets (e.g. PS1/R3000) elide the barrier entirely.
+  // See: swift-embedded-ps1 MipsISelDAGToDAG MIPS-I sync patch.
+  case MipsISD::Sync:
+    if (!Subtarget->hasMips2()) {
+      ReplaceUses(SDValue(Node, 0), Node->getOperand(0));
+      CurDAG->RemoveDeadNode(Node);
+      return;
+    }
+    break;
 
   case ISD::ADD:
     if (Node->getSimpleValueType(0).isVector() &&

@@ -2743,6 +2743,14 @@ SDValue MipsTargetLowering::lowerEH_RETURN(SDValue Op, SelectionDAG &DAG)
 
 SDValue MipsTargetLowering::lowerATOMIC_FENCE(SDValue Op,
                                               SelectionDAG &DAG) const {
+  // MIPS-I (e.g. PS1/R3000) has no SYNC instruction; SYNC was added in
+  // MIPS-II. On single-core bare-metal targets there are no ordering hazards
+  // between cores, so eliding the fence is safe. Returning the input chain
+  // makes the fence a no-op without breaking the DAG.
+  // See: swift-embedded-ps1 MipsISelLowering MIPS-I fence patch.
+  if (!Subtarget.hasMips2())
+    return Op.getOperand(0);
+
   // FIXME: Need pseudo-fence for 'singlethread' fences
   // FIXME: Set SType for weaker fences where supported/appropriate.
   unsigned SType = 0;

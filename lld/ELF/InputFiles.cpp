@@ -1256,9 +1256,18 @@ template <class ELFT> void ObjFile<ELFT>::postParse() {
     uint32_t secIdx = eSym.st_shndx;
     uint8_t binding = eSym.getBinding();
     if (LLVM_UNLIKELY(binding != STB_GLOBAL && binding != STB_WEAK &&
-                      binding != STB_GNU_UNIQUE))
-      Err(ctx) << this << ": symbol (" << i
-               << ") has invalid binding: " << (int)binding;
+                      binding != STB_GNU_UNIQUE)) {
+      // Old mipsel-none-elf GCC (used by PSn00bSDK) emits STT_FILE local
+      // symbols after global symbols — an ELF ordering violation that GNU ld
+      // tolerates. Downgrade to a warning for STB_LOCAL so linking succeeds.
+      // See: swift-embedded-ps1 lld local-after-global MIPS patch.
+      if (binding == STB_LOCAL)
+        Warn(ctx) << this << ": local symbol (" << i
+                  << ") after globals (old mipsel-gcc artefact), ignoring";
+      else
+        Err(ctx) << this << ": symbol (" << i
+                 << ") has invalid binding: " << (int)binding;
+    }
 
     // st_value of STT_TLS represents the assigned offset, not the actual
     // address which is used by STT_FUNC and STT_OBJECT. STT_TLS symbols can

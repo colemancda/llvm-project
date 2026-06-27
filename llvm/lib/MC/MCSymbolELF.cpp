@@ -82,8 +82,13 @@ unsigned MCSymbolELF::getBinding() const {
 
   if (isDefined())
     return ELF::STB_LOCAL;
+  // Temporary symbols (e.g. MIPS O32 "$tmp0" JALR-hint labels) must remain
+  // local even when used in a reloc directive. The relocation's r_offset is
+  // resolved as section-base + offset; promoting them to STB_GLOBAL would
+  // violate the ELF invariant checked in ELFWriter::computeSymbolTable.
+  // See: swift-embedded-ps1 MCSymbolELF getBinding temporary patch.
   if (isUsedInReloc())
-    return ELF::STB_GLOBAL;
+    return isTemporary() ? ELF::STB_LOCAL : ELF::STB_GLOBAL;
   if (isSignature())
     return ELF::STB_LOCAL;
   return ELF::STB_GLOBAL;
